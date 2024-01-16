@@ -9,83 +9,163 @@ const unsigned short  BIG_ENDIAN_SIZE = 64;  // big endian number (representing 
 const unsigned short  BINARY_WORD_SIZE = 32; // used in the second step where each word is 32 bits
 const unsigned short  BINARY_WORD_ARR_SIZE = 64; // size of the array which contains the 32 bit words
 
+// each of the constants is the first 32 bits of the fractional parts of the cube roots of the first 64 primes (2 - 311).
+const uint32_t roundConsts[64] = {
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+};
 
-typedef std::bitset<BINARY_NUM_SIZE> binary8Bit;
-typedef std::bitset<BINARY_WORD_SIZE> binary32Bit;
-typedef std::bitset<BIG_ENDIAN_SIZE> binary64Bit;
+// hash values (squares of first 8 primes: 2, 3, 5, 7, 11, 13, 17, 19)
+uint32_t hashValues[8] = {
+    0x6a09e667,
+    0xbb67ae85,
+    0x3c6ef372,
+    0xa54ff53a,
+    0x510e527f,
+    0x9b05688c,
+    0x1f83d9ab,
+    0x5be0cd19
+};
 
 
-struct dynamic8BitBinaryArr
+struct dynamic8BitUIntArr
 {
     size_t capacity = CHUNK_SIZE / BINARY_NUM_SIZE;
     size_t length = 0;
-    binary8Bit* arr = new binary8Bit[capacity];
+    uint8_t* arr = new uint8_t[capacity];
 };
 
-struct dynamic32BitBinaryArr
+struct dynamic32BitUIntArr
 {
     size_t capacity = BINARY_WORD_ARR_SIZE;
     size_t length = 0;
-    binary32Bit* arr = new binary32Bit[capacity];
+    uint32_t* arr = new uint32_t[capacity];
 };
 
 
-int modifyZeroedIdndexes(dynamic32BitBinaryArr& binaryArr32Bit);
-bool fullAdder(bool b1, bool b2, bool& carry);
-binary32Bit bitsetAdd(binary32Bit& x, binary32Bit& y);
-binary32Bit leftRotate(binary32Bit binaryNum, unsigned int rotation);
-binary32Bit rightRotate(binary32Bit binaryNum, unsigned int rotation);
-dynamic32BitBinaryArr convert8BitTo32BitBinaryArr(dynamic8BitBinaryArr& binaryArr);
-binary32Bit createEntry(int startIdx, int endIdx, dynamic8BitBinaryArr& binaryArr);
-int addBigEndian(dynamic8BitBinaryArr& binaryArr);
-int stringToBinary(char* str, dynamic8BitBinaryArr& binaryArr);
-binary8Bit decimalToBinary8Bit(int decimal);
-binary64Bit decimalToBinary64Bit(int decimal);
-void updateArrayCapacity(dynamic8BitBinaryArr& binaryArr);
-void copyElementsIntoNewArr(const dynamic8BitBinaryArr& binaryArr, binary8Bit* newArr);
-void printArray(dynamic32BitBinaryArr& binaryArr);
-void printArray(dynamic8BitBinaryArr& binaryArr);
+void modifyHashValues(uint32_t* compressedValues);
+void compress(dynamic32BitUIntArr& arrMessageSchedule, uint32_t* valuesForCompression);
+int modifyZeroedIndexes(dynamic32BitUIntArr& arrMessageSchedule);
+uint32_t leftRotate(uint32_t binaryNum, unsigned int rotation);
+uint32_t rightRotate(uint32_t binaryNum, unsigned int rotation);
+int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule);
+uint32_t createEntry(int startIdx, int endIdx, dynamic8BitUIntArr& arr);
+int addLengthAtEnd(dynamic8BitUIntArr& arr);
+int stringToArr(char* str, dynamic8BitUIntArr& binaryArr);
+void updateArrayCapacity(dynamic8BitUIntArr& arr);
+void copyElementsIntoNewArr(const dynamic8BitUIntArr& oldArr, uint8_t* newArr);
+void initArrWithZeros(dynamic32BitUIntArr& arrMessageSchedule);
+void initArrWithZeros(dynamic8BitUIntArr& arr);
+void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length);
+void printArray(uint32_t* arr, size_t length);
+void printArray(dynamic32BitUIntArr& arr);
+void printArray(dynamic8BitUIntArr& arr);
 
 
 int main()
 {
     char text[] = "hello world";
-    dynamic8BitBinaryArr binaryArr;
+    dynamic8BitUIntArr arr;
+    initArrWithZeros(arr);
 
     // convert inputted string into an array of binary numbers
-    stringToBinary(text, binaryArr);
+    stringToArr(text, arr);
 
     // add big endian representing string length in binary at the end of the binary array
-    addBigEndian(binaryArr);
+    addLengthAtEnd(arr);
 
     // append 1 after the last binary number 
-    binaryArr.arr[binaryArr.length - 1] = decimalToBinary8Bit(128);
+    arr.arr[arr.length] = 128;
 
-    // hash values (squares of first 8 primes: 2, 3, 5, 7, 11, 13, 17, 19)
-    int h0 = 0x6a09e667;
-    int h1 = 0xbb67ae85;
-    int h2 = 0x3c6ef372;
-    int h3 = 0xa54ff53a;
-    int h4 = 0x510e527f;
-    int h5 = 0x9b05688c;
-    int h6 = 0x1f83d9ab;
-    int h7 = 0x5be0cd19;
+    // chunk loop (for each 512 bit chink)
+    for (int i = 0; i < arr.capacity * BINARY_NUM_SIZE / CHUNK_SIZE; ++i)
+    {
+        // convert old arr to new arr with 64 in number 32 bit words
+        dynamic32BitUIntArr arrMessageSchedule;
+        initArrWithZeros(arrMessageSchedule);
+        convert8BitTo32BitArr(arr, arrMessageSchedule);
 
-    // convert old arr to new arr with 64 in number 32 bit words
-    dynamic32BitBinaryArr binaryArr32Bit = convert8BitTo32BitBinaryArr(binaryArr);
+        // modify the zero-ed indexes at the end of the array
+        modifyZeroedIndexes(arrMessageSchedule);
 
-    // modify the zero-ed indexes at the end of the array
-    modifyZeroedIdndexes(binaryArr32Bit);
+        // compression
+        uint32_t valuesForCompression[8];
+        copyArr(hashValues, valuesForCompression, 8);
+        compress(arrMessageSchedule, valuesForCompression);
 
-    printArray(binaryArr32Bit);
+        // modify final values
+        modifyHashValues(valuesForCompression);
+
+        // free memory in heap
+        delete[] arrMessageSchedule.arr;
+    }
+
+    printArray(hashValues, 8);
 
     // free memory in heap
-    delete[] binaryArr.arr;
-    delete[] binaryArr32Bit.arr;
+    delete[] arr.arr;
 }
 
 
-int modifyZeroedIdndexes(dynamic32BitBinaryArr& binaryArr32Bit)
+void modifyHashValues(uint32_t* compressedValues)
+{
+    for (int i = 0; i < 8; ++i)
+    {
+        hashValues[i] += compressedValues[i];
+    }
+}
+
+void compress(dynamic32BitUIntArr& arr, uint32_t* val)
+{
+    // for rach loop 0 - 63, a - h are the values in val
+    // 
+    // S1 = (e rightrotate 6) xor (e rightrotate 11) xor (e rightrotate 25)
+    // ch = (e and f) xor ((not e) and g)
+    // temp1 = h + S1 + ch + k[i] + w[i]
+    // 
+    // S0 = (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
+    // maj = (a and b) xor (a and c) xor (b and c)
+    // temp2 : = S0 + maj
+    // 
+    // h = g
+    // g = f
+    // f = e
+    // e = d + temp1
+    // 
+    // d = c
+    // c = b
+    // b = a
+    // a = temp1 + temp2
+
+    for (int i = 0; i < BINARY_WORD_ARR_SIZE; ++i)
+    {
+        uint32_t s1 = rightRotate(val[4], 6) ^ rightRotate(val[4], 11) ^ rightRotate(val[4], 25);
+        uint32_t ch = (val[4] & val[5]) ^ ((~val[4]) & val[6]);
+        uint32_t temp1 = val[7] + s1 + ch + roundConsts[i] + arr.arr[i];
+
+        uint32_t s0 = rightRotate(val[0], 2) ^ rightRotate(val[0], 13) ^ rightRotate(val[0], 22);
+        uint32_t maj = (val[0] & val[1]) ^ (val[0] & val[2]) ^ (val[1] & val[2]);
+        uint32_t temp2 = s0 + maj;
+
+        val[7] = val[6];
+        val[6] = val[5];
+        val[5] = val[4];
+        val[4] = val[3] + temp1;
+
+        val[3] = val[2];
+        val[2] = val[1];
+        val[1] = val[0];
+        val[0] = temp1 + temp2;
+    }
+}
+
+int modifyZeroedIndexes(dynamic32BitUIntArr& dynArr)
 {
     //                                  = 16
     for (unsigned short i = CHUNK_SIZE / BINARY_WORD_SIZE; i < BINARY_WORD_ARR_SIZE; ++i)
@@ -95,150 +175,126 @@ int modifyZeroedIdndexes(dynamic32BitBinaryArr& binaryArr32Bit)
         // s1 = (w[i - 2] rightrotate 17) xor (w[i - 2] rightrotate 19) xor (w[i - 2] rightshift 10)
         // w[i] = w[i - 16] + s0 + w[i - 7] + s1
 
-        binary32Bit s0 = rightRotate(binaryArr32Bit.arr[i - 15], 7) ^ rightRotate(binaryArr32Bit.arr[i - 15], 18) ^ (binaryArr32Bit.arr[i - 15] >> 3);
-        binary32Bit s1 = rightRotate(binaryArr32Bit.arr[i - 2], 17) ^ rightRotate(binaryArr32Bit.arr[i - 2], 19) ^ (binaryArr32Bit.arr[i - 2] >> 10);
+        uint32_t s0 = rightRotate(dynArr.arr[i - 15], 7) ^ rightRotate(dynArr.arr[i - 15], 18) ^ (dynArr.arr[i - 15] >> 3);
+        uint32_t s1 = rightRotate(dynArr.arr[i - 2], 17) ^ rightRotate(dynArr.arr[i - 2], 19) ^ (dynArr.arr[i - 2] >> 10);
 
-        binary32Bit firstAddition = bitsetAdd(binaryArr32Bit.arr[i - 16], s0);
-        binary32Bit secondAddition = bitsetAdd(firstAddition, binaryArr32Bit.arr[i - 7]);
-
-        binaryArr32Bit.arr[i] =  bitsetAdd(secondAddition, s1);
+        dynArr.arr[i] = dynArr.arr[i - 16] + s0 + dynArr.arr[i - 7] + s1;
     }
 
     return 1;
 }
 
-bool fullAdder(bool b1, bool b2, bool& carry)
-{
-    bool sum = (b1 ^ b2) ^ carry;
-    carry = (b1 && b2) || (b1 && carry) || (b2 && carry);
-    return sum;
-}
-
-binary32Bit bitsetAdd(binary32Bit& x, binary32Bit& y)
-{
-    bool carry = false;
-    binary32Bit ans;
-
-    for (int i = 0; i < BINARY_WORD_SIZE; ++i) { ans[i] = fullAdder(x[i], y[i], carry); }
-
-    return ans;
-}
-
-binary32Bit leftRotate(binary32Bit binaryNum, unsigned int rotation)
+uint32_t leftRotate(uint32_t binaryNum, unsigned int rotation)
 {
     return (binaryNum << rotation) | (binaryNum >> (BINARY_WORD_SIZE - rotation));
 }
 
-binary32Bit rightRotate(binary32Bit binaryNum, unsigned int rotation)
+uint32_t rightRotate(uint32_t binaryNum, unsigned int rotation)
 {
     return (binaryNum >> rotation) | (binaryNum << (BINARY_WORD_SIZE - rotation));
 }
 
-dynamic32BitBinaryArr convert8BitTo32BitBinaryArr(dynamic8BitBinaryArr& binaryArr)
+int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule)
 {
-    dynamic32BitBinaryArr newBinaryArr;
-
     // create entry
-    for (int i = 0; i <= binaryArr.capacity - 4; i += 4)
+    for (int i = 0; i <= arr.capacity - 4; i += 4)
     {
-        binary32Bit entry = createEntry(i, i + 4, binaryArr);
-        newBinaryArr.arr[newBinaryArr.length++] = entry;
+        uint32_t entry = createEntry(i, i + 4, arr);
+        arrMessageSchedule.arr[arrMessageSchedule.length++] = entry;
     }
 
-    return newBinaryArr;
+    return 1;
 }
 
-binary32Bit createEntry(int startIdx, int endIdx, dynamic8BitBinaryArr& binaryArr)
+uint32_t createEntry(int startIdx, int endIdx, dynamic8BitUIntArr& arr)
 {
-    binary32Bit entry;
-    int entryIdx = BINARY_WORD_SIZE;
+    uint32_t entry = 0;
+    unsigned short tempMultiplier = BINARY_WORD_SIZE;
 
     for (int i = startIdx; i < endIdx; ++i)
     {
         for (int j = BINARY_NUM_SIZE - 1; j >= 0; --j)
         {
-            entry[--entryIdx] = binaryArr.arr[i][j];
+            int mask = 1 << j;
+            int masked_n = arr.arr[i] & mask;
+            int bit = masked_n >> j;
+
+            entry += bit << --tempMultiplier;
         }
     }
 
     return entry;
 }
 
-int addBigEndian(dynamic8BitBinaryArr& binaryArr)
+int addLengthAtEnd(dynamic8BitUIntArr& arr)
 {
-    size_t bigEndian = size_t(binaryArr.length * BINARY_NUM_SIZE);
+    size_t bigEndian = size_t(arr.length * BINARY_NUM_SIZE);
 
     for (int i = BIG_ENDIAN_SIZE / BINARY_NUM_SIZE - 1; i >= 0; --i)
     {
-        binaryArr.arr[binaryArr.capacity - i - 1] = (bigEndian >> (BINARY_NUM_SIZE * i));
+        arr.arr[arr.capacity - i - 1] = (bigEndian >> (BINARY_NUM_SIZE * i));
     }
 
     return 1;
 }
 
-binary64Bit decimalToBinary64Bit(int decimal)
+int stringToArr(char* str, dynamic8BitUIntArr& arr)
 {
-    binary64Bit res = 0;
-
-    for (int i = 0; i < BIG_ENDIAN_SIZE; ++i)
-    {
-        int decimalShiftedCopy = decimal >> i;
-        binary64Bit mask = uint64_t(1) << i;
-        if (decimalShiftedCopy & 1) { res = res | mask; }
-    }
-
-    return res;
-}
-
-int stringToBinary(char* str, dynamic8BitBinaryArr& binaryArr)
-{
-    if (str == nullptr || binaryArr.arr == nullptr) { return 0; }
+    if (str == nullptr || arr.arr == nullptr) { return 0; }
 
     while (*str != '\0') 
     { 
-        if (binaryArr.length == binaryArr.capacity - BIG_ENDIAN_SIZE / BINARY_NUM_SIZE) { updateArrayCapacity(binaryArr); }
-        binaryArr.arr[binaryArr.length++] = decimalToBinary8Bit(*(str++));
+        if (arr.length == arr.capacity - BIG_ENDIAN_SIZE / BINARY_NUM_SIZE) { updateArrayCapacity(arr); }
+        arr.arr[arr.length++] = uint8_t((*(str++)));
     }
-    ++binaryArr.length;
 
     return 1;
 }
 
-binary8Bit decimalToBinary8Bit(int decimal)
+void updateArrayCapacity(dynamic8BitUIntArr& arr)
 {
-    binary8Bit res = 0;
+    arr.capacity = arr.capacity + (CHUNK_SIZE / BINARY_NUM_SIZE);
 
-    for (int i = 0; i < BINARY_NUM_SIZE; ++i)
-    {
-        int decimalShiftedCopy = decimal >> i;
-        binary8Bit mask = uint64_t(1) << i;
-        if (decimalShiftedCopy & 1) { res = res | mask; }
-    }
-
-    return res;
+    uint8_t* newArr = new uint8_t[arr.capacity];
+    copyElementsIntoNewArr(arr, newArr);
+    delete[] arr.arr;
+    arr.arr = newArr;
 }
 
-void updateArrayCapacity(dynamic8BitBinaryArr& binaryArr)
-{
-    binaryArr.capacity = binaryArr.capacity + (CHUNK_SIZE / BINARY_NUM_SIZE);
-
-    binary8Bit* newArr = new binary8Bit[binaryArr.capacity];
-    copyElementsIntoNewArr(binaryArr, newArr);
-    delete[] binaryArr.arr;
-    binaryArr.arr = newArr;
-}
-
-void copyElementsIntoNewArr(const dynamic8BitBinaryArr& binaryArr, binary8Bit* newArr)
+void copyElementsIntoNewArr(const dynamic8BitUIntArr& binaryArr, uint8_t* newArr)
 {
     for (size_t i = 0; i < binaryArr.length; ++i) { newArr[i] = binaryArr.arr[i]; }
 }
 
-void printArray(dynamic32BitBinaryArr& binaryArr)
+void initArrWithZeros(dynamic32BitUIntArr& arrMessageSchedule)
 {
-    for (int i = 0; i < binaryArr.capacity; ++i) { std::cout << binaryArr.arr[i] << ' '; }
+    for (int i = 0; i < arrMessageSchedule.capacity; ++i) { arrMessageSchedule.arr[i] = 0; }
 }
 
-void printArray(dynamic8BitBinaryArr& binaryArr)
+void initArrWithZeros(dynamic8BitUIntArr& arr)
 {
-    for (int i = 0; i < binaryArr.capacity; ++i) { std::cout << binaryArr.arr[i] << ' '; }
+    for (int i = 0; i < arr.capacity; ++i) { arr.arr[i] = 0; }
+}
+
+void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length)
+{
+    for (size_t i = 0; i < length; ++i) { newArr[i] = oldArr[i]; }
+}
+
+void printArray(uint32_t* arr, size_t length)
+{
+    for (int i = 0; i < length; ++i)
+    {
+        std::cout << std::hex << arr[i] << std::endl;
+    }
+}
+
+void printArray(dynamic32BitUIntArr& arr)
+{
+    for (int i = 0; i < arr.capacity; ++i) { std::cout << arr.arr[i] << ' '; }
+}
+
+void printArray(dynamic8BitUIntArr& arr)
+{
+    for (int i = 0; i < arr.capacity; ++i) { std::cout << arr.arr[i] << ' '; }
 }
