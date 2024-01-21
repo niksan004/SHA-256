@@ -1,13 +1,16 @@
 #include <iostream>
-#include <bitset> // only using the bitset data type because it is much more memory-efficient
+#include <fstream>
 
 
-const unsigned short  CHUNK_SIZE = 512;
+const unsigned short CHUNK_SIZE = 512;
 const unsigned short BINARY_NUM_SIZE = 8;   // used to convert char to binary number
-const unsigned short  BIG_ENDIAN_SIZE = 64;  // big endian number (representing length of input string) in bits
+const unsigned short BIG_ENDIAN_SIZE = 64;  // big endian number (representing length of input string) in bits
 
-const unsigned short  BINARY_WORD_SIZE = 32; // used in the second step where each word is 32 bits
-const unsigned short  BINARY_WORD_ARR_SIZE = 64; // size of the array which contains the 32 bit words
+const unsigned short BINARY_WORD_SIZE = 32; // used in the second step where each word is 32 bits
+const unsigned short BINARY_WORD_ARR_SIZE = 64; // size of the array which contains the 32 bit words
+
+const unsigned short OUTPUT_SIZE = 65; // 8 * 8 for the 8 hash values, which are 8 symbols long + 1 to add '\0' to make it a string
+
 
 // each of the constants is the first 32 bits of the fractional parts of the cube roots of the first 64 primes (2 - 311).
 const uint32_t roundConsts[64] = {
@@ -48,20 +51,34 @@ struct dynamic32BitUIntArr
     uint32_t* arr = new uint32_t[capacity];
 };
 
+struct string
+{
+    size_t capacity = BINARY_WORD_ARR_SIZE;
+    size_t length = 0;
+    char* arr = new char[capacity];
+};
 
+int readFromFile(string& str, char* fileName);
+int appendToStr(string& str, char* strToAppend, size_t length);
+void updateStrCapacity(string& str);
+void copyElementsIntoNewArr(const string& str, char* newArr);
+int SHA256(const char* input, char output[OUTPUT_SIZE]);
+int toString(uint32_t* hashValues, char* str);
+char getCharInHexadecAt(uint32_t hexadecNum, int idx);
 void modifyHashValues(uint32_t* compressedValues);
 void compress(dynamic32BitUIntArr& arrMessageSchedule, uint32_t* valuesForCompression);
 int modifyZeroedIndexes(dynamic32BitUIntArr& arrMessageSchedule);
 uint32_t leftRotate(uint32_t binaryNum, unsigned int rotation);
 uint32_t rightRotate(uint32_t binaryNum, unsigned int rotation);
-int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule);
+int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule, size_t startIdx);
 uint32_t createEntry(int startIdx, int endIdx, dynamic8BitUIntArr& arr);
 int addLengthAtEnd(dynamic8BitUIntArr& arr);
-int stringToArr(char* str, dynamic8BitUIntArr& binaryArr);
+int stringToArr(const char* str, dynamic8BitUIntArr& binaryArr);
 void updateArrayCapacity(dynamic8BitUIntArr& arr);
 void copyElementsIntoNewArr(const dynamic8BitUIntArr& oldArr, uint8_t* newArr);
 void initArrWithZeros(dynamic32BitUIntArr& arrMessageSchedule);
 void initArrWithZeros(dynamic8BitUIntArr& arr);
+void initArrWithZeros(uint8_t* arr, size_t length);
 void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length);
 void printArray(uint32_t* arr, size_t length);
 void printArray(dynamic32BitUIntArr& arr);
@@ -70,12 +87,79 @@ void printArray(dynamic8BitUIntArr& arr);
 
 int main()
 {
-    char text[] = "hello world";
+    char output[65];
+    string input;
+    char fileName[] = "input.txt";
+
+    readFromFile(input, fileName);
+
+    SHA256(input.arr, output);
+
+    std::cout << output;
+}
+
+
+int readFromFile(string& str, char* fileName)
+{
+    const size_t stringSize = 64;
+    char temp[stringSize];
+
+    std::ifstream file(fileName);
+
+    while (!file.eof())
+    {
+        file.getline(temp, stringSize);
+        appendToStr(str, temp, stringSize);
+    }
+
+    file.close();
+
+    return 1;
+}
+
+int appendToStr(string& str, char* strToAppend, size_t length)
+{
+    for (int i = 0; i < length; ++i)
+    {
+        if (str.length == str.capacity) { updateStrCapacity(str); }
+
+        str.arr[str.length++] = strToAppend[i];
+    }
+
+    return 1;
+}
+
+void updateStrCapacity(string& str)
+{
+    str.capacity = str.capacity + BINARY_WORD_ARR_SIZE;
+
+    char* newArr = new char[str.capacity];
+    copyElementsIntoNewArr(str, newArr);
+    delete[] str.arr;
+    str.arr = newArr;
+}
+
+void copyElementsIntoNewArr(const string& str, char* newArr)
+{
+    for (size_t i = 0; i < str.length; ++i) { newArr[i] = str.arr[i]; }
+}
+
+int writeToFile(char* strToWrite, char* fileName)
+{
+    std::ofstream file(fileName);
+    file << strToWrite;
+    file.close();
+
+    return 1;
+}
+
+int SHA256(const char* input, char output[OUTPUT_SIZE])
+{
     dynamic8BitUIntArr arr;
     initArrWithZeros(arr);
 
     // convert inputted string into an array of binary numbers
-    stringToArr(text, arr);
+    stringToArr(input, arr);
 
     // add big endian representing string length in binary at the end of the binary array
     addLengthAtEnd(arr);
@@ -84,12 +168,13 @@ int main()
     arr.arr[arr.length] = 128;
 
     // chunk loop (for each 512 bit chink)
-    for (int i = 0; i < arr.capacity * BINARY_NUM_SIZE / CHUNK_SIZE; ++i)
+    size_t numOfChunks = arr.capacity * BINARY_NUM_SIZE / CHUNK_SIZE;
+    for (int i = 0; i < numOfChunks; ++i)
     {
         // convert old arr to new arr with 64 in number 32 bit words
         dynamic32BitUIntArr arrMessageSchedule;
         initArrWithZeros(arrMessageSchedule);
-        convert8BitTo32BitArr(arr, arrMessageSchedule);
+        convert8BitTo32BitArr(arr, arrMessageSchedule, i * CHUNK_SIZE / BINARY_NUM_SIZE);
 
         // modify the zero-ed indexes at the end of the array
         modifyZeroedIndexes(arrMessageSchedule);
@@ -106,12 +191,41 @@ int main()
         delete[] arrMessageSchedule.arr;
     }
 
-    printArray(hashValues, 8);
+    toString(hashValues, output);
 
     // free memory in heap
     delete[] arr.arr;
+
+    return 1;
 }
 
+int toString(uint32_t* hashValues, char* str)
+{
+    size_t strIdx = 0;
+
+    for (int i = 0; i < 8; ++i)
+    {
+        for (int j = 0; j < 8; ++j)
+        {
+            str[strIdx++] = getCharInHexadecAt(hashValues[i], j);
+        }
+    }
+    str[strIdx] = '\0';
+
+    return 1;
+}
+
+char getCharInHexadecAt(uint32_t hexadecNum, int idx)
+{
+    int numAtIdx = 0;
+
+    for (int i = 0; i < 4; ++i) 
+    {
+        numAtIdx += ((hexadecNum >> (BINARY_WORD_SIZE - (4 * idx) - i - 1)) & 1) << (3 - i);
+    }
+
+    return numAtIdx < 10 ? numAtIdx + '0' : numAtIdx - 10 + 'A';
+}
 
 void modifyHashValues(uint32_t* compressedValues)
 {
@@ -194,10 +308,10 @@ uint32_t rightRotate(uint32_t binaryNum, unsigned int rotation)
     return (binaryNum >> rotation) | (binaryNum << (BINARY_WORD_SIZE - rotation));
 }
 
-int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule)
+int convert8BitTo32BitArr(dynamic8BitUIntArr& arr, dynamic32BitUIntArr& arrMessageSchedule, size_t startIdx)
 {
     // create entry
-    for (int i = 0; i <= arr.capacity - 4; i += 4)
+    for (int i = startIdx; i <= arr.capacity - 4; i += 4)
     {
         uint32_t entry = createEntry(i, i + 4, arr);
         arrMessageSchedule.arr[arrMessageSchedule.length++] = entry;
@@ -238,7 +352,7 @@ int addLengthAtEnd(dynamic8BitUIntArr& arr)
     return 1;
 }
 
-int stringToArr(char* str, dynamic8BitUIntArr& arr)
+int stringToArr(const char* str, dynamic8BitUIntArr& arr)
 {
     if (str == nullptr || arr.arr == nullptr) { return 0; }
 
@@ -256,6 +370,7 @@ void updateArrayCapacity(dynamic8BitUIntArr& arr)
     arr.capacity = arr.capacity + (CHUNK_SIZE / BINARY_NUM_SIZE);
 
     uint8_t* newArr = new uint8_t[arr.capacity];
+    initArrWithZeros(newArr, arr.capacity);
     copyElementsIntoNewArr(arr, newArr);
     delete[] arr.arr;
     arr.arr = newArr;
@@ -271,6 +386,11 @@ void initArrWithZeros(dynamic32BitUIntArr& arrMessageSchedule)
     for (int i = 0; i < arrMessageSchedule.capacity; ++i) { arrMessageSchedule.arr[i] = 0; }
 }
 
+void initArrWithZeros(uint8_t* arr, size_t length)
+{
+    for (int i = 0; i < length; ++i) { arr[i] = 0; }
+}
+
 void initArrWithZeros(dynamic8BitUIntArr& arr)
 {
     for (int i = 0; i < arr.capacity; ++i) { arr.arr[i] = 0; }
@@ -283,10 +403,7 @@ void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length)
 
 void printArray(uint32_t* arr, size_t length)
 {
-    for (int i = 0; i < length; ++i)
-    {
-        std::cout << std::hex << arr[i] << std::endl;
-    }
+    for (int i = 0; i < length; ++i) { std::cout << arr[i] << std::endl; }
 }
 
 void printArray(dynamic32BitUIntArr& arr)
