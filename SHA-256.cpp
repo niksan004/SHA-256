@@ -1,3 +1,19 @@
+﻿/**
+*
+* Solution to course project #06
+* Introduction to programming course
+* Faculty of Mathematics and Informatics of Sofia University
+* Winter semester 2023/2024
+*
+* @author Николай Стоянов
+* @idnumber 5MI0600360
+* @compiler VC
+*
+* file with all the code
+*
+*/
+
+
 #include <iostream>
 #include <fstream>
 
@@ -58,10 +74,13 @@ struct string
     char* arr = new char[capacity];
 };
 
+
+bool compareHash(char firstHash[OUTPUT_SIZE], char secondHash[OUTPUT_SIZE]);
 int readFromFile(string& str, char* fileName);
 int appendToStr(string& str, char* strToAppend, size_t length);
 void updateStrCapacity(string& str);
 void copyElementsIntoNewArr(const string& str, char* newArr);
+int writeToFile(char* strToWrite, char* fileName);
 int SHA256(const char* input, char output[OUTPUT_SIZE]);
 int toString(uint32_t* hashValues, char* str);
 char getCharInHexadecAt(uint32_t hexadecNum, int idx);
@@ -80,24 +99,83 @@ void initArrWithZeros(dynamic32BitUIntArr& arrMessageSchedule);
 void initArrWithZeros(dynamic8BitUIntArr& arr);
 void initArrWithZeros(uint8_t* arr, size_t length);
 void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length);
-void printArray(uint32_t* arr, size_t length);
-void printArray(dynamic32BitUIntArr& arr);
-void printArray(dynamic8BitUIntArr& arr);
 
 
 int main()
 {
-    char output[65];
+    char output[OUTPUT_SIZE];
     string input;
-    char fileName[] = "input.txt";
+    string inputFileName;
 
-    readFromFile(input, fileName);
+    int choice = 0;
 
-    SHA256(input.arr, output);
+    std::cout << "What do you want to do: \n" <<
+        "  write 0 to read text from file and hash it and save it in another file \n" <<
+        "  write 1 to read text from file, hash it and compare it to another hash \n";
 
-    std::cout << output;
+    std::cin >> choice;
+
+    while (choice != 0 || choice != 1)
+    {
+        if (choice == 0)
+        {
+            std::cout << "Input file name: ";
+            std::cin >> inputFileName.arr;
+
+            readFromFile(input, inputFileName.arr);
+
+            SHA256(input.arr, output);
+
+            string outputFileName;
+            std::cout << "Choose name for output file: ";
+            std::cin >> outputFileName.arr;
+            writeToFile(output, outputFileName.arr);
+
+            std::cout << "successful execution";
+
+            delete[] outputFileName.arr;
+            break;
+        }
+        else if (choice == 1)
+        {
+            std::cout << "Input file name: ";
+            std::cin >> inputFileName.arr;
+
+            readFromFile(input, inputFileName.arr);
+
+            SHA256(input.arr, output);
+
+            char hashToCompare[OUTPUT_SIZE];
+            std::cout << "Input hash to compare to: ";
+            std::cin >> hashToCompare;
+
+            if (compareHash(output, hashToCompare)) { std::cout << "Hashes are the same"; }
+            else { std::cout << "Hashes are not the same"; }
+
+            break;
+        }
+        else
+        {
+            std::cout << "Please enter a valid choice ";
+            std::cin >> choice;
+        }
+    }
+
+    delete[] input.arr;
+    delete[] inputFileName.arr;
 }
 
+
+bool compareHash(char firstHash[OUTPUT_SIZE], char secondHash[OUTPUT_SIZE])
+{
+    for (size_t i = 0; i < OUTPUT_SIZE; ++i)
+    {
+        if (firstHash[i] >= 'a' && firstHash[i] <= 'z') { firstHash[i] = firstHash[i] - ('a' - 'A'); }
+        if (secondHash[i] >= 'a' && secondHash[i] <= 'z') { secondHash[i] = secondHash[i] - ('a' - 'A'); }
+        if (firstHash[i] != secondHash[i]) { return false; }
+    }
+    return true;
+}
 
 int readFromFile(string& str, char* fileName)
 {
@@ -399,19 +477,4 @@ void initArrWithZeros(dynamic8BitUIntArr& arr)
 void copyArr(const uint32_t* oldArr, uint32_t* newArr, size_t length)
 {
     for (size_t i = 0; i < length; ++i) { newArr[i] = oldArr[i]; }
-}
-
-void printArray(uint32_t* arr, size_t length)
-{
-    for (int i = 0; i < length; ++i) { std::cout << arr[i] << std::endl; }
-}
-
-void printArray(dynamic32BitUIntArr& arr)
-{
-    for (int i = 0; i < arr.capacity; ++i) { std::cout << arr.arr[i] << ' '; }
-}
-
-void printArray(dynamic8BitUIntArr& arr)
-{
-    for (int i = 0; i < arr.capacity; ++i) { std::cout << arr.arr[i] << ' '; }
 }
