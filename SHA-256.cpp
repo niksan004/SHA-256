@@ -115,15 +115,28 @@ int main()
 
     std::cin >> choice;
 
-    while (choice != 0 || choice != 1)
+    while (true)
     {
+        // check if choice is inputted correctly
+        if (choice != 0 && choice != 1)
+        {
+            std::cout << "Please enter a valid choice ";
+            std::cin >> choice;
+            continue;
+        }
+
+        std::cout << "Input file name: ";
+        std::cin >> inputFileName.arr;
+
+        // check if reading from file is executed correctly
+        if (!readFromFile(input, inputFileName.arr))
+        {
+            std::cout << "File doesn't exist\n";
+            continue;
+        }
+
         if (choice == 0)
         {
-            std::cout << "Input file name: ";
-            std::cin >> inputFileName.arr;
-
-            readFromFile(input, inputFileName.arr);
-
             SHA256(input.arr, output);
 
             string outputFileName;
@@ -138,11 +151,6 @@ int main()
         }
         else if (choice == 1)
         {
-            std::cout << "Input file name: ";
-            std::cin >> inputFileName.arr;
-
-            readFromFile(input, inputFileName.arr);
-
             SHA256(input.arr, output);
 
             char hashToCompare[OUTPUT_SIZE];
@@ -153,11 +161,6 @@ int main()
             else { std::cout << "Hashes are not the same"; }
 
             break;
-        }
-        else
-        {
-            std::cout << "Please enter a valid choice ";
-            std::cin >> choice;
         }
     }
 
@@ -183,6 +186,8 @@ int readFromFile(string& str, char* fileName)
     char temp[stringSize];
 
     std::ifstream file(fileName);
+
+    if (!file.good()) { return 0; } // check whether file exists
 
     while (!file.eof())
     {
